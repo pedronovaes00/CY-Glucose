@@ -14,17 +14,6 @@ function gerarCodigo() {
     return codigo;
 }
 
-// Verificar código ao carregar
-if (codigoAcesso) {
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    document.getElementById('userEmail').textContent = codigoAcesso;
-    carregarDados();
-} else {
-    document.getElementById('loginScreen').style.display = 'flex';
-    document.getElementById('app').style.display = 'none';
-}
-
 function criarNovoCodigo() {
     codigoAcesso = gerarCodigo();
     localStorage.setItem('codigoAcesso', codigoAcesso);
@@ -66,6 +55,19 @@ function trocarCodigo() {
     }
 }
 
+// Verificar código ao carregar - EXECUTAR LOGO NO INÍCIO
+window.addEventListener('DOMContentLoaded', function() {
+    if (codigoAcesso) {
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        document.getElementById('userEmail').textContent = codigoAcesso;
+        carregarDados();
+    } else {
+        document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('app').style.display = 'none';
+    }
+});
+
 async function carregarDados() {
     try {
         medicoes = await carregarMedicoesAPI(codigoAcesso);
@@ -91,7 +93,6 @@ const momentosNomes = {
     'jantar-depois': '🌙 Jantar - 1h Depois',
     'antes-dormir': '😴 Antes de Dormir',
     'antes-treino': '💪 Antes do Treino'
-    'depois-treino': '💪 Depois do Treino'
 };
 
 // Inicialização
@@ -109,7 +110,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    
+    // Verificar alerta de treino
     document.getElementById('momento').addEventListener('change', function() {
         if (this.value === 'antes-treino') {
             document.getElementById('glicemia').addEventListener('input', verificarAlertaTreino);

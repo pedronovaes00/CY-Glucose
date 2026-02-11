@@ -29,7 +29,7 @@
                 <span>ou</span>
             </div>
             
-            <button onclick="usarCodigoExistente()" class="btn-register">
+            <button onclick="usarCodigoExistente()" class="btn-criar">
                 📱 Já Tenho um Código
             </button>
             
@@ -63,16 +63,15 @@
                     <select id="momento" required>
                         <option value="">Selecione...</option>
                         <option value="cafe-antes">☕ Café da Manhã - Antes</option>
-                        <option value="cafe-depois">☕ Café da Manhã - Depois</option>
+                        <option value="cafe-depois">☕ Café da Manhã - 1h Depois</option>
                         <option value="almoco-antes">🍽️ Almoço - Antes</option>
-                        <option value="almoco-depois">🍽️ Almoço -  Depois</option>
+                        <option value="almoco-depois">🍽️ Almoço - 1h Depois</option>
                         <option value="lanche-antes">🍰 Café da Tarde - Antes</option>
-                        <option value="lanche-depois">🍰 Café da Tarde -  Depois</option>
+                        <option value="lanche-depois">🍰 Café da Tarde - 1h Depois</option>
                         <option value="jantar-antes">🌙 Jantar - Antes</option>
-                        <option value="jantar-depois">🌙 Jantar -  Depois</option>
+                        <option value="jantar-depois">🌙 Jantar - 1h Depois</option>
                         <option value="antes-dormir">😴 Antes de Dormir</option>
                         <option value="antes-treino">💪 Antes do Treino</option>
-                        <option value="depois-treino">💪 Depois do Treino</option>  
                     </select>
                 </div>
 
@@ -103,6 +102,7 @@
                         <div>
                             <label for="tipoInsulina" style="font-size: 0.9em; margin-bottom: 5px;">Tipo:</label>
                             <select id="tipoInsulina">
+                                <option value="">Não aplicado</option>
                                 <option value="NPH">NPH</option>
                                 <option value="Regular">Regular</option>
                                 <option value="Lantus">Lantus (Glargina)</option>
