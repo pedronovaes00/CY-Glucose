@@ -19,16 +19,33 @@ export default async function handler(req, res) {
                 return res.status(400).json({ erro: 'Código não fornecido' });
             }
 
+            // Verificar se o código foi registrado (suporta strings e objetos)
+            const codigos = await kv.get('glicemia:codes') || [];
+            const found = codigos.some(c => (typeof c === 'string') ? c === codigo : c.codigo === codigo);
+            if (!found) {
+                return res.status(404).json({ erro: 'Código não encontrado' });
+            }
+
             const medicoes = await kv.get(`glicemia:${codigo}`) || [];
             return res.status(200).json(medicoes);
         }
 
         // POST - Salvar medição
         if (req.method === 'POST') {
-            const { codigo, ...medicao } = req.body;
+            const { codigo, registrarNovo, ...medicao } = req.body;
             
             if (!codigo) {
                 return res.status(400).json({ erro: 'Código não fornecido' });
+            }
+
+            // Se for código novo, registrar na lista de códigos
+            if (registrarNovo) {
+                const codigos = await kv.get('glicemia:codes') || [];
+                const exists = codigos.some(c => (typeof c === 'string') ? c === codigo : c.codigo === codigo);
+                if (!exists) {
+                    codigos.push({ codigo, criadoEm: Date.now() });
+                    await kv.set('glicemia:codes', codigos);
+                }
             }
 
             // Carregar dados existentes
@@ -60,6 +77,12 @@ export default async function handler(req, res) {
             const medicaoId = req.url.split('/').pop().split('?')[0];
             
             if (!codigo) {
+                return res.status(404).json({ erro: 'Código não encontrado' });
+            }
+
+            // Verificar se o código existe
+            const codigos = await kv.get('glicemia:codes') || [];
+            if (!codigos.includes(codigo)) {
                 return res.status(404).json({ erro: 'Código não encontrado' });
             }
 

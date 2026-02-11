@@ -21,13 +21,44 @@ async function carregarMedicoesAPI(codigo) {
         const response = await fetch(`${API_URL}/medicoes?codigo=${encodeURIComponent(codigo)}`);
         
         if (!response.ok) {
-            throw new Error('Erro ao carregar medições');
+            // tentar ler corpo de erro (pode não ser JSON)
+            let textoErro = 'Erro ao carregar medições';
+            try {
+                const t = await response.text();
+                if (t) textoErro = t;
+            } catch (e) {
+                /* fallback */
+            }
+            throw new Error(textoErro);
         }
-        
-        return await response.json();
+
+        try {
+            return await response.json();
+        } catch (e) {
+            // resposta não é JSON
+            console.error('Resposta inválida (não-JSON) ao carregar medições:', await response.text());
+            return [];
+        }
     } catch (error) {
         console.error('Erro ao carregar medições:', error);
         return [];
+    }
+}
+
+// Validar se um código existe no backend (retorna true/false)
+async function validarCodigoAPI(codigo) {
+    try {
+        const response = await fetch(`${API_URL}/medicoes?codigo=${encodeURIComponent(codigo)}`);
+        if (response.status === 404) return false;
+        if (!response.ok) {
+            let textoErro = 'Erro ao validar código';
+            try { textoErro = await response.text(); } catch (e) {}
+            throw new Error(textoErro);
+        }
+        return true;
+    } catch (error) {
+        console.error('Erro ao validar código:', error);
+        throw error;
     }
 }
 
@@ -40,8 +71,15 @@ async function salvarMedicaoAPI(medicao, codigo, registrarNovo = false) {
         });
         
         if (!response.ok) {
-            const erro = await response.json();
-            throw new Error(erro.erro || 'Erro ao salvar medição');
+            // tentar decodificar JSON de erro, cair para texto se necessário
+            let erroObj = null;
+            try {
+                erroObj = await response.json();
+            } catch (e) {
+                const txt = await response.text();
+                erroObj = { erro: txt };
+            }
+            throw new Error(erroObj.erro || 'Erro ao salvar medição');
         }
         
         return await response.json();

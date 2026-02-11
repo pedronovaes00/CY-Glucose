@@ -19,6 +19,19 @@ export default async function handler(req, res) {
                 return res.status(400).json({ erro: 'Código não fornecido' });
             }
 
+            // Verificar lista de códigos (suporta strings e objetos)
+            let codigos = [];
+            try {
+                const codesBlob = await get('glicemia-codes.json');
+                if (codesBlob) codigos = await codesBlob.json();
+            } catch (e) {
+                codigos = [];
+            }
+            const found = codigos.some(c => (typeof c === 'string') ? c === codigo : c.codigo === codigo);
+            if (!found) {
+                return res.status(404).json({ erro: 'Código não encontrado' });
+            }
+
             try {
                 const blob = await get(`glicemia-${codigo}.json`);
                 if (blob) {
@@ -27,17 +40,32 @@ export default async function handler(req, res) {
                 }
                 return res.status(200).json([]);
             } catch (error) {
-                // Arquivo não existe ainda
                 return res.status(200).json([]);
             }
         }
 
         // POST - Salvar medição
         if (req.method === 'POST') {
-            const { codigo, ...medicao } = req.body;
+            const { codigo, registrarNovo, ...medicao } = req.body;
             
             if (!codigo) {
                 return res.status(400).json({ erro: 'Código não fornecido' });
+            }
+
+            // Se for código novo, registrar na lista de códigos
+            if (registrarNovo) {
+                let codigos = [];
+                try {
+                    const codesBlob = await get('glicemia-codes.json');
+                    if (codesBlob) codigos = await codesBlob.json();
+                } catch (e) {
+                    codigos = [];
+                }
+                const exists = codigos.some(c => (typeof c === 'string') ? c === codigo : c.codigo === codigo);
+                if (!exists) {
+                    codigos.push({ codigo, criadoEm: Date.now() });
+                    await put('glicemia-codes.json', JSON.stringify(codigos), { access: 'public', contentType: 'application/json' });
+                }
             }
 
             // Carregar dados existentes
@@ -80,6 +108,18 @@ export default async function handler(req, res) {
             const medicaoId = req.url.split('/').pop().split('?')[0];
             
             if (!codigo) {
+                return res.status(404).json({ erro: 'Código não encontrado' });
+            }
+
+            // Verificar lista de códigos
+            let codigos = [];
+            try {
+                const codesBlob = await get('glicemia-codes.json');
+                if (codesBlob) codigos = await codesBlob.json();
+            } catch (e) {
+                codigos = [];
+            }
+            if (!codigos.includes(codigo)) {
                 return res.status(404).json({ erro: 'Código não encontrado' });
             }
 

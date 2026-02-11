@@ -34,15 +34,27 @@ function usarCodigoExistente() {
         alert('❌ Código inválido!');
         return;
     }
-    
-    codigoAcesso = codigo.trim().toUpperCase();
-    localStorage.setItem('codigoAcesso', codigoAcesso);
-    
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    document.getElementById('userEmail').textContent = codigoAcesso;
-    
-    carregarDados();
+    (async () => {
+        const codigoFormatado = codigo.trim().toUpperCase();
+        try {
+            const existe = await validarCodigoAPI(codigoFormatado);
+            if (!existe) {
+                alert('❌ Código não encontrado. Verifique e tente novamente.');
+                return;
+            }
+
+            codigoAcesso = codigoFormatado;
+            localStorage.setItem('codigoAcesso', codigoAcesso);
+            
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+            document.getElementById('userEmail').textContent = codigoAcesso;
+            
+            carregarDados();
+        } catch (error) {
+            alert('❌ Erro ao validar código: ' + (error.message || error));
+        }
+    })();
 }
 
 function mostrarCodigo() {
