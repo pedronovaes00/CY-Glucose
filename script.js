@@ -79,9 +79,6 @@ async function carregarDados() {
     }
 }
 
-// ========== RESTO DO APP ==========
-
-// Nomes amigáveis para os momentos
 const momentosNomes = {
     'cafe-antes': '☕ Café da Manhã - Antes',
     'cafe-depois': '☕ Café da Manhã - 1h Depois',
@@ -92,32 +89,39 @@ const momentosNomes = {
     'jantar-antes': '🌙 Jantar - Antes',
     'jantar-depois': '🌙 Jantar - 1h Depois',
     'antes-dormir': '😴 Antes de Dormir',
-    'antes-treino': '💪 Antes do Treino'
+    'antes-treino': '💪 Antes do Treino',
+    'depois-treino': '💪 Depois do Treino'
 };
 
-// Inicialização
+
 document.addEventListener('DOMContentLoaded', function() {
-    if (!codigoAcesso) return; // Não inicializar sem código
-    
-    // Formulário de medição
+    // Configurar formulário SEMPRE (mesmo sem código)
     const form = document.getElementById('medicaoForm');
     if (form) {
-        form.addEventListener('submit', function(e) {
+        form.onsubmit = function(e) {
             e.preventDefault();
             e.stopPropagation();
-            salvarMedicao();
+            if (codigoAcesso) {
+                salvarMedicao();
+            }
             return false;
-        });
+        };
     }
+    
+    if (!codigoAcesso) return; // Não inicializar resto sem código
 
     // Verificar alerta de treino
-    document.getElementById('momento').addEventListener('change', function() {
-        if (this.value === 'antes-treino') {
-            document.getElementById('glicemia').addEventListener('input', verificarAlertaTreino);
-        } else {
-            document.getElementById('alertaTreino').style.display = 'none';
-        }
-    });
+    const momento = document.getElementById('momento');
+    const glicemia = document.getElementById('glicemia');
+    if (momento && glicemia) {
+        momento.addEventListener('change', function() {
+            if (this.value === 'antes-treino') {
+                glicemia.addEventListener('input', verificarAlertaTreino);
+            } else {
+                document.getElementById('alertaTreino').style.display = 'none';
+            }
+        });
+    }
 });
 
 // Preencher data e hora atuais
