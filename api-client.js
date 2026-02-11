@@ -31,16 +31,17 @@ async function carregarMedicoesAPI(codigo) {
     }
 }
 
-async function salvarMedicaoAPI(medicao, codigo) {
+async function salvarMedicaoAPI(medicao, codigo, registrarNovo = false) {
     try {
         const response = await fetch(`${API_URL}/medicoes`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...medicao, codigo })
+            body: JSON.stringify({ ...medicao, codigo, registrarNovo })
         });
         
         if (!response.ok) {
-            throw new Error('Erro ao salvar medição');
+            const erro = await response.json();
+            throw new Error(erro.erro || 'Erro ao salvar medição');
         }
         
         return await response.json();

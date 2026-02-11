@@ -1,0 +1,22 @@
+{
+  "name": "controle-glicemia",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Sistema de controle de glicemia e insulina",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@vercel/kv": "^1.0.1"
+  },
+  "keywords": [
+    "glicemia",
+    "diabetes",
+    "saúde",
+    "controle"
+  ],
+  "author": "",
+  "license": "MIT"
+}

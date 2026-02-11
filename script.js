@@ -17,6 +17,7 @@ function gerarCodigo() {
 function criarNovoCodigo() {
     codigoAcesso = gerarCodigo();
     localStorage.setItem('codigoAcesso', codigoAcesso);
+    localStorage.setItem('codigoNovo', 'true'); // Marcar que é código novo
     
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
@@ -79,6 +80,9 @@ async function carregarDados() {
     }
 }
 
+// ========== RESTO DO APP ==========
+
+// Nomes amigáveis para os momentos
 const momentosNomes = {
     'cafe-antes': '☕ Café da Manhã - Antes',
     'cafe-depois': '☕ Café da Manhã - 1h Depois',
@@ -89,11 +93,10 @@ const momentosNomes = {
     'jantar-antes': '🌙 Jantar - Antes',
     'jantar-depois': '🌙 Jantar - 1h Depois',
     'antes-dormir': '😴 Antes de Dormir',
-    'antes-treino': '💪 Antes do Treino',
-    'depois-treino': '💪 Depois do Treino'
+    'antes-treino': '💪 Antes do Treino'
 };
 
-
+// Inicialização - Configurar formulário
 document.addEventListener('DOMContentLoaded', function() {
     // Configurar formulário SEMPRE (mesmo sem código)
     const form = document.getElementById('medicaoForm');
@@ -170,7 +173,13 @@ async function salvarMedicao() {
     }
 
     try {
-        const medicaoSalva = await salvarMedicaoAPI(medicao, codigoAcesso);
+        const codigoNovo = localStorage.getItem('codigoNovo') === 'true';
+        const medicaoSalva = await salvarMedicaoAPI(medicao, codigoAcesso, codigoNovo);
+        
+        // Remover flag de código novo após primeira gravação
+        if (codigoNovo) {
+            localStorage.removeItem('codigoNovo');
+        }
         
         const index = medicoes.findIndex(m => m.id === medicaoSalva.id);
         if (index >= 0) {
