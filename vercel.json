@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "buildCommand": null,
+  "devCommand": null,
+  "installCommand": null,
+  "framework": null,
+  "outputDirectory": ".",
+  "rewrites": [
+    {
+      "source": "/api/medicoes/:path*",
+      "destination": "/api/medicoes"
+    }
+  ]
+}

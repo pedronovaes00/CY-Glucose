@@ -1,8 +1,18 @@
 // 🔥 Cliente API - Sistema de Código Simples (SEM LOGIN!)
 
+// ===== CONFIGURAÇÃO DA API - ESCOLHA UMA =====
+
+// OPÇÃO 1: VERCEL (Ativo)
 const API_URL = window.location.hostname === 'localhost' 
-    ? 'http://localhost:8888/.netlify/functions' 
-    : '/.netlify/functions';
+    ? 'http://localhost:3000/api' 
+    : '/api';
+
+// OPÇÃO 2: NETLIFY (Comentado - descomente para usar)
+// const API_URL = window.location.hostname === 'localhost' 
+//     ? 'http://localhost:8888/.netlify/functions' 
+//     : '/.netlify/functions';
+
+// ============================================
 
 // ========== MEDIÇÕES ==========
 
