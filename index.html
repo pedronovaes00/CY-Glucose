@@ -10,48 +10,49 @@
     <title>Controle de Glicemia e Insulina</title>
     <link rel="stylesheet" href="styles.css">
     
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
-    <!-- Tela de Login -->
+    <!-- Tela de Acesso -->
     <div id="loginScreen" class="login-screen">
         <div class="login-container">
             <h1>🏥 Controle de Glicemia</h1>
-            <p class="login-subtitle">Faça login para sincronizar seus dados</p>
+            <p class="login-subtitle">Primeira vez aqui?</p>
             
-            <button onclick="loginComGoogle()" class="btn-google">
-                🔐 Entrar com Google
+            <button onclick="criarNovoCodigo()" class="btn-login" style="font-size: 1.2em; padding: 15px;">
+                ✨ Criar Novo Código
             </button>
             
             <div class="divider">
                 <span>ou</span>
             </div>
             
-            <div class="login-form">
-                <input type="email" id="emailLogin" placeholder="Email" class="input-login">
-                <input type="password" id="senhaLogin" placeholder="Senha" class="input-login">
-                <button onclick="loginComEmail()" class="btn-login">🔑 Entrar</button>
-                <button onclick="criarContaEmail()" class="btn-criar">✨ Criar Conta</button>
-            </div>
+            <button onclick="usarCodigoExistente()" class="btn-register">
+                📱 Já Tenho um Código
+            </button>
             
             <p class="login-info">
-                💡 Seus dados serão sincronizados entre todos os seus dispositivos
+                💡 Seus dados ficarão salvos na nuvem usando um código único.<br>
+                Use o mesmo código no PC e celular para sincronizar!
             </p>
         </div>
     </div>
 
     <!-- App Principal -->
-    <div id="appPrincipal" style="display: none;">
+    <div id="app" style="display: none;">
     <div class="container">
         <header>
             <h1>📊 Controle de Glicemia</h1>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <button onclick="mostrarCodigo()" class="btn-secondary" style="font-size: 0.9em;">
+                    🔑 Meu Código: <span id="userEmail"></span>
+                </button>
+                <button onclick="trocarCodigo()" class="btn-secondary" style="font-size: 0.9em;">
+                    🔄 Trocar Código
+                </button>
+            </div>
         </header>
 
         
@@ -74,16 +75,18 @@
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label>Data e Hora:</label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <div>
-                            <label for="dataRegistro" style="font-size: 0.9em; margin-bottom: 5px;">Data:</label>
-                            <input type="date" id="dataRegistro" required>
-                        </div>
-                        <div>
-                            <label for="horaRegistro" style="font-size: 0.9em; margin-bottom: 5px;">Hora:</label>
-                            <input type="time" id="horaRegistro" required>
+                <div id="camposDataHora" style="display: none;">
+                    <div class="form-group">
+                        <label>Data e Hora:</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                            <div>
+                                <label for="dataRegistro" style="font-size: 0.9em; margin-bottom: 5px;">Data:</label>
+                                <input type="date" id="dataRegistro">
+                            </div>
+                            <div>
+                                <label for="horaRegistro" style="font-size: 0.9em; margin-bottom: 5px;">Hora:</label>
+                                <input type="time" id="horaRegistro">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -183,8 +186,7 @@
     </div>
     </div>
 
-    <script src="firebase-config.js"></script>
-    <script src="firebase-auth.js"></script>
+    <script src="api-client.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

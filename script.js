@@ -1,6 +1,83 @@
-// Carregar dados (agora do Firestore em vez de localStorage)
+// ========== CÓDIGO DE ACESSO SIMPLES ==========
+
 let medicoes = [];
 let filtroAtual = 'todos';
+let codigoAcesso = localStorage.getItem('codigoAcesso');
+
+// Gerar código único
+function gerarCodigo() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let codigo = 'GLICE-';
+    for (let i = 0; i < 4; i++) {
+        codigo += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return codigo;
+}
+
+// Verificar código ao carregar
+if (codigoAcesso) {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('userEmail').textContent = codigoAcesso;
+    carregarDados();
+} else {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+}
+
+function criarNovoCodigo() {
+    codigoAcesso = gerarCodigo();
+    localStorage.setItem('codigoAcesso', codigoAcesso);
+    
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('userEmail').textContent = codigoAcesso;
+    
+    alert(`✅ Código criado: ${codigoAcesso}\n\nGuarde esse código para acessar de outros dispositivos!`);
+    carregarDados();
+}
+
+function usarCodigoExistente() {
+    const codigo = prompt('Digite seu código de acesso:');
+    
+    if (!codigo || codigo.trim() === '') {
+        alert('❌ Código inválido!');
+        return;
+    }
+    
+    codigoAcesso = codigo.trim().toUpperCase();
+    localStorage.setItem('codigoAcesso', codigoAcesso);
+    
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('userEmail').textContent = codigoAcesso;
+    
+    carregarDados();
+}
+
+function mostrarCodigo() {
+    alert(`📱 Seu código de acesso:\n\n${codigoAcesso}\n\nUse esse código no celular para acessar seus dados!`);
+}
+
+function trocarCodigo() {
+    if (confirm('⚠️ Ao trocar o código, você precisará usar o NOVO código em todos os dispositivos. Continuar?')) {
+        localStorage.removeItem('codigoAcesso');
+        window.location.reload();
+    }
+}
+
+async function carregarDados() {
+    try {
+        medicoes = await carregarMedicoesAPI(codigoAcesso);
+        renderizarHistorico();
+        atualizarEstatisticas();
+    } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+        medicoes = [];
+    }
+}
+
+// ========== RESTO DO APP ==========
 
 // Nomes amigáveis para os momentos
 const momentosNomes = {
@@ -18,25 +95,20 @@ const momentosNomes = {
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', function() {
-    // Preencher data e hora atuais
-    preencherDataHoraAtual();
+    if (!codigoAcesso) return; // Não inicializar sem código
     
-    renderizarHistorico();
-    atualizarEstatisticas();
-
     // Formulário de medição
-    document.getElementById('medicaoForm').addEventListener('submit', function(e) {
+    document.getElementById('medicaoForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        salvarMedicao();
+        await salvarMedicao();
     });
 
-    // Verificar alerta de treino ao mudar o momento
+    // Verificar alerta de treino
     document.getElementById('momento').addEventListener('change', function() {
         if (this.value === 'antes-treino') {
             document.getElementById('glicemia').addEventListener('input', verificarAlertaTreino);
         } else {
             document.getElementById('alertaTreino').style.display = 'none';
-            document.getElementById('glicemia').removeEventListener('input', verificarAlertaTreino);
         }
     });
 });
@@ -51,39 +123,62 @@ function preencherDataHoraAtual() {
     document.getElementById('horaRegistro').value = horaFormatada;
 }
 
-// Salvar medição (nova ou editada)
-function salvarMedicao() {
-    const momento = document.getElementById('momento').value;
-    const glicemia = parseInt(document.getElementById('glicemia').value);
-    const tipoInsulina = document.getElementById('tipoInsulina').value;
-    const unidadesInsulina = parseFloat(document.getElementById('unidadesInsulina').value) || 0;
-    const anotacoes = document.getElementById('anotacoes').value.trim();
-
-    // Criar objeto da medição com data/hora atual
+// Salvar medição
+async function salvarMedicao() {
+    // Verificar se está editando
+    const editandoId = document.getElementById('medicaoForm').dataset.editandoId;
+    
+    // Se campos de data/hora estão ocultos, usar data/hora atual
+    const camposVisiveis = document.getElementById('camposDataHora').style.display !== 'none';
+    let data, hora;
+    
+    if (camposVisiveis && document.getElementById('dataRegistro').value) {
+        data = document.getElementById('dataRegistro').value;
+        hora = document.getElementById('horaRegistro').value;
+    } else {
+        // Usar data/hora atual
+        const agora = new Date();
+        data = agora.toISOString().split('T')[0];
+        hora = agora.toTimeString().split(':').slice(0, 2).join(':');
+    }
+    
     const medicao = {
-        id: Date.now(),
-        momento: momento,
-        glicemia: glicemia,
-        tipoInsulina: tipoInsulina,
-        unidadesInsulina: unidadesInsulina,
-        anotacoes: anotacoes,
-        dataHora: new Date().toISOString()
+        momento: document.getElementById('momento').value,
+        glicemia: parseFloat(document.getElementById('glicemia').value),
+        tipoInsulina: document.getElementById('tipoInsulina').value,
+        unidadesInsulina: parseFloat(document.getElementById('unidadesInsulina').value) || 0,
+        anotacoes: document.getElementById('anotacoes').value || '',
+        data: data,
+        hora: hora,
+        timestamp: new Date(`${data}T${hora}`).getTime()
     };
+    
+    // Se estiver editando, manter o ID
+    if (editandoId) {
+        medicao.id = editandoId;
+    }
 
-    // Adicionar ao array e salvar
-    medicoes.unshift(medicao); // Adiciona no início
-    salvarMedicoes();
-
-    // Limpar formulário
-    document.getElementById('medicaoForm').reset();
-    document.getElementById('alertaTreino').style.display = 'none';
-
-    // Atualizar interface
-    renderizarHistorico();
-    atualizarEstatisticas();
-
-    // Feedback visual
-    mostrarNotificacao('✅ Medição registrada com sucesso!');
+    try {
+        const medicaoSalva = await salvarMedicaoAPI(medicao, codigoAcesso);
+        
+        const index = medicoes.findIndex(m => m.id === medicaoSalva.id);
+        if (index >= 0) {
+            medicoes[index] = medicaoSalva;
+        } else {
+            medicoes.unshift(medicaoSalva);
+        }
+        
+        renderizarHistorico();
+        atualizarEstatisticas();
+        document.getElementById('medicaoForm').reset();
+        document.getElementById('camposDataHora').style.display = 'none';
+        document.getElementById('medicaoForm').dataset.editandoId = '';
+        document.getElementById('btnSalvar').textContent = '💾 Registrar Medição';
+        document.getElementById('btnCancelar').style.display = 'none';
+        alert(editandoId ? '✅ Medição atualizada!' : '✅ Medição salva com sucesso!');
+    } catch (error) {
+        alert('❌ Erro ao salvar: ' + error.message);
+    }
 }
 
 // Verificar alerta para treino
@@ -124,9 +219,8 @@ function renderizarHistorico() {
     }
 
     historicoLista.innerHTML = medicoesFiltradas.map(medicao => {
-        const data = new Date(medicao.dataHora);
-        const dataFormatada = data.toLocaleDateString('pt-BR');
-        const horaFormatada = data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const data = medicao.data || new Date(medicao.timestamp).toISOString().split('T')[0];
+        const hora = medicao.hora || new Date(medicao.timestamp).toTimeString().split(':').slice(0, 2).join(':');
         const classeGlicemia = classificarGlicemia(medicao.glicemia);
 
         return `
@@ -134,11 +228,11 @@ function renderizarHistorico() {
                 <div class="medicao-header">
                     <div>
                         <div class="medicao-momento">${momentosNomes[medicao.momento]}</div>
-                        <div class="medicao-datetime">📅 ${dataFormatada} às ${horaFormatada}</div>
+                        <div class="medicao-datetime">📅 ${new Date(data).toLocaleDateString('pt-BR')} às ${hora}</div>
                     </div>
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <button class="btn-edit" onclick="editarMedicao(${medicao.id})">✏️ Editar</button>
-                        <button class="btn-delete" onclick="deletarMedicao(${medicao.id})">🗑️ Excluir</button>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-edit" onclick="editarMedicao('${medicao.id}')">✏️ Editar</button>
+                        <button class="btn-delete" onclick="deletarMedicao('${medicao.id}')">🗑️ Excluir</button>
                     </div>
                 </div>
                 <div class="medicao-body">
@@ -146,17 +240,18 @@ function renderizarHistorico() {
                         <span class="medicao-label">Glicemia</span>
                         <span class="medicao-valor ${classeGlicemia}">${medicao.glicemia} mg/dL</span>
                     </div>
-                    ${(medicao.unidadesInsulina > 0 || medicao.insulina > 0) ? `
+                    ${(medicao.unidadesInsulina > 0) ? `
                         <div class="medicao-info">
                             <span class="medicao-label">Insulina</span>
                             <span class="medicao-valor">
-                                ${medicao.tipoInsulina || 'Não especificado'} - ${medicao.unidadesInsulina || medicao.insulina || 0} U
+                                ${medicao.tipoInsulina || 'Não especificado'} - ${medicao.unidadesInsulina} U
                             </span>
                         </div>
                     ` : ''}
                     ${medicao.anotacoes ? `
-                        <div class="medicao-anotacoes">
-                            <strong>📝 Anotações:</strong> ${medicao.anotacoes}
+                        <div class="medicao-info">
+                            <span class="medicao-label">📝 Anotações</span>
+                            <span class="medicao-valor">${medicao.anotacoes}</span>
                         </div>
                     ` : ''}
                 </div>
@@ -175,18 +270,16 @@ function classificarGlicemia(valor) {
 
 // Filtrar medições por período
 function filtrarMedicoes() {
-    const agora = new Date();
-    const umDiaAtras = new Date(agora.getTime() - 24 * 60 * 60 * 1000);
-    const umaSemanAtras = new Date(agora.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const umMesAtras = new Date(agora.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const agora = Date.now();
+    const umDia = 24 * 60 * 60 * 1000;
 
     switch (filtroAtual) {
         case 'hoje':
-            return medicoes.filter(m => new Date(m.dataHora) >= umDiaAtras);
+            return medicoes.filter(m => (agora - m.timestamp) < umDia);
         case 'semana':
-            return medicoes.filter(m => new Date(m.dataHora) >= umaSemanAtras);
+            return medicoes.filter(m => (agora - m.timestamp) < 7 * umDia);
         case 'mes':
-            return medicoes.filter(m => new Date(m.dataHora) >= umMesAtras);
+            return medicoes.filter(m => (agora - m.timestamp) < 30 * umDia);
         default:
             return medicoes;
     }
@@ -196,23 +289,11 @@ function filtrarMedicoes() {
 function filtrarPeriodo(periodo) {
     filtroAtual = periodo;
     
-    // Atualizar botões ativos
-    document.querySelectorAll('.btn-filter').forEach(btn => {
-        btn.classList.remove('active');
-    });
+    document.querySelectorAll('.btn-filter').forEach(btn => btn.classList.remove('active'));
     event.target.classList.add('active');
 
     renderizarHistorico();
     atualizarEstatisticas();
-}
-
-// Deletar medição
-async function deletarMedicao(id) {
-    if (confirm('Tem certeza que deseja excluir esta medição?')) {
-        if (await deletarMedicaoFirestore(id)) {
-            mostrarNotificacao('🗑️ Medição excluída.');
-        }
-    }
 }
 
 // Editar medição
@@ -220,38 +301,49 @@ function editarMedicao(id) {
     const medicao = medicoes.find(m => m.id === id);
     if (!medicao) return;
 
-    // Rolar para o formulário
+    // Rolar para o topo
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    // Preencher formulário com dados da medição
+    // Preencher formulário
     document.getElementById('momento').value = medicao.momento;
     document.getElementById('glicemia').value = medicao.glicemia;
     document.getElementById('tipoInsulina').value = medicao.tipoInsulina || '';
     document.getElementById('unidadesInsulina').value = medicao.unidadesInsulina || '';
     document.getElementById('anotacoes').value = medicao.anotacoes || '';
     
-    // Preencher data e hora
-    const dataHora = new Date(medicao.dataHora);
-    const dataFormatada = dataHora.toISOString().split('T')[0];
-    const horaFormatada = dataHora.toTimeString().split(':').slice(0, 2).join(':');
-    document.getElementById('dataRegistro').value = dataFormatada;
-    document.getElementById('horaRegistro').value = horaFormatada;
-
-    // Marcar como modo de edição
-    document.getElementById('medicaoEditandoId').value = id;
+    // Mostrar campos de data/hora e preencher
+    document.getElementById('camposDataHora').style.display = 'block';
+    document.getElementById('dataRegistro').value = medicao.data;
+    document.getElementById('horaRegistro').value = medicao.hora;
+    
+    // Marcar como edição
+    document.getElementById('medicaoForm').dataset.editandoId = id;
     document.getElementById('btnSalvar').textContent = '✅ Atualizar Medição';
-    document.getElementById('btnCancelar').style.display = 'block';
-
-    mostrarNotificacao('✏️ Modo de edição ativado. Altere os dados e clique em Atualizar.');
+    document.getElementById('btnCancelar').style.display = 'inline-block';
 }
 
 // Cancelar edição
 function cancelarEdicao() {
-    document.getElementById('medicaoEditandoId').value = '';
+    document.getElementById('medicaoForm').reset();
+    document.getElementById('camposDataHora').style.display = 'none';
+    document.getElementById('medicaoForm').dataset.editandoId = '';
     document.getElementById('btnSalvar').textContent = '💾 Registrar Medição';
     document.getElementById('btnCancelar').style.display = 'none';
-    document.getElementById('medicaoForm').reset();
-    preencherDataHoraAtual();
+}
+
+// Deletar medição
+async function deletarMedicao(id) {
+    if (!confirm('Tem certeza que deseja excluir esta medição?')) return;
+    
+    try {
+        await deletarMedicaoAPI(id, codigoAcesso);
+        medicoes = medicoes.filter(m => m.id !== id);
+        renderizarHistorico();
+        atualizarEstatisticas();
+        alert('✅ Medição deletada!');
+    } catch (error) {
+        alert('❌ Erro ao deletar: ' + error.message);
+    }
 }
 
 // Atualizar estatísticas
@@ -266,39 +358,30 @@ function atualizarEstatisticas() {
         return;
     }
 
-    // Média geral
     const somaGeral = medicoesFiltradas.reduce((acc, m) => acc + m.glicemia, 0);
     const mediaGeral = Math.round(somaGeral / medicoesFiltradas.length);
     document.getElementById('mediaGeral').textContent = `${mediaGeral} mg/dL`;
 
-    // Média em jejum (antes das refeições + antes de dormir)
     const jejum = medicoesFiltradas.filter(m => 
         m.momento.includes('-antes') || m.momento === 'antes-dormir'
     );
     if (jejum.length > 0) {
-        const somaJejum = jejum.reduce((acc, m) => acc + m.glicemia, 0);
-        const mediaJejum = Math.round(somaJejum / jejum.length);
+        const mediaJejum = Math.round(jejum.reduce((acc, m) => acc + m.glicemia, 0) / jejum.length);
         document.getElementById('mediaJejum').textContent = `${mediaJejum} mg/dL`;
     } else {
         document.getElementById('mediaJejum').textContent = '--';
     }
 
-    // Média pós-prandial (depois das refeições)
     const posPrandial = medicoesFiltradas.filter(m => m.momento.includes('-depois'));
     if (posPrandial.length > 0) {
-        const somaPosPrandial = posPrandial.reduce((acc, m) => acc + m.glicemia, 0);
-        const mediaPosPrandial = Math.round(somaPosPrandial / posPrandial.length);
+        const mediaPosPrandial = Math.round(posPrandial.reduce((acc, m) => acc + m.glicemia, 0) / posPrandial.length);
         document.getElementById('mediaPosPrandial').textContent = `${mediaPosPrandial} mg/dL`;
     } else {
         document.getElementById('mediaPosPrandial').textContent = '--';
     }
 
-    // Total de medições
     document.getElementById('totalMedicoes').textContent = medicoesFiltradas.length;
 }
-
-// ⚠️ Função removida - agora usa Firestore
-// Salvar medições era no localStorage, agora usa salvarMedicaoFirestore()
 
 // Exportar dados como JSON
 function exportarJSON() {
@@ -315,11 +398,10 @@ function exportarJSON() {
     link.download = `controle-glicemia-${new Date().toISOString().split('T')[0]}.json`;
     link.click();
     URL.revokeObjectURL(url);
-
-    mostrarNotificacao('📥 Dados exportados em JSON com sucesso!');
+    alert('📥 JSON exportado com sucesso!');
 }
 
-// Exportar dados como PDF
+// Exportar PDF
 function exportarPDF() {
     if (medicoes.length === 0) {
         alert('Não há dados para exportar.');
@@ -330,69 +412,36 @@ function exportarPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
-    // Título
     doc.setFontSize(20);
-    doc.setTextColor(102, 126, 234);
-    doc.text('Controle de Glicemia e Insulina', 105, 15, { align: 'center' });
+    doc.text('Controle de Glicemia', 105, 15, { align: 'center' });
 
-    // Data do relatório
     doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Relatório gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, 105, 22, { align: 'center' });
-
-    // Estatísticas
-    doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
-    doc.text('Estatísticas', 14, 35);
+    doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 105, 22, { align: 'center' });
 
     const stats = calcularEstatisticas(medicoesFiltradas);
-    doc.setFontSize(10);
-    let yPos = 42;
-    doc.text(`Total de Medições: ${medicoesFiltradas.length}`, 14, yPos);
-    doc.text(`Média Geral: ${stats.mediaGeral} mg/dL`, 14, yPos + 6);
-    doc.text(`Média em Jejum: ${stats.mediaJejum}`, 14, yPos + 12);
-    doc.text(`Média Pós-Prandial: ${stats.mediaPosPrandial}`, 14, yPos + 18);
-    doc.text(`Período: ${getFiltroTexto()}`, 14, yPos + 24);
+    doc.text(`Total: ${medicoesFiltradas.length} | Média: ${stats.mediaGeral} mg/dL`, 14, 35);
 
-    // Tabela de medições
-    const tableData = medicoesFiltradas.map(medicao => {
-        const data = new Date(medicao.dataHora);
-        const unidades = medicao.unidadesInsulina || medicao.insulina || 0;
-        const tipo = medicao.tipoInsulina || '';
-        const insulinaTexto = unidades > 0 ? `${tipo ? tipo + ' - ' : ''}${unidades} U` : '-';
-        return [
-            data.toLocaleDateString('pt-BR'),
-            data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-            momentosNomes[medicao.momento].replace(/[^\w\s-]/g, ''),
-            `${medicao.glicemia} mg/dL`,
-            insulinaTexto,
-            medicao.anotacoes || '-'
-        ];
-    });
+    const tableData = medicoesFiltradas.map(m => [
+        new Date(m.timestamp).toLocaleDateString('pt-BR'),
+        new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        momentosNomes[m.momento].replace(/[^\w\s-]/g, ''),
+        `${m.glicemia} mg/dL`,
+        m.unidadesInsulina > 0 ? `${m.tipoInsulina} - ${m.unidadesInsulina} U` : '-'
+    ]);
 
     doc.autoTable({
-        startY: yPos + 30,
-        head: [['Data', 'Hora', 'Momento', 'Glicemia', 'Insulina', 'Anotações']],
+        startY: 42,
+        head: [['Data', 'Hora', 'Momento', 'Glicemia', 'Insulina']],
         body: tableData,
         theme: 'grid',
-        headStyles: { fillColor: [102, 126, 234], textColor: 255 },
-        styles: { fontSize: 8, cellPadding: 2 },
-        columnStyles: {
-            0: { cellWidth: 22 },
-            1: { cellWidth: 18 },
-            2: { cellWidth: 45 },
-            3: { cellWidth: 25 },
-            4: { cellWidth: 20 },
-            5: { cellWidth: 50 }
-        }
+        styles: { fontSize: 8 }
     });
 
-    // Salvar PDF
     doc.save(`controle-glicemia-${new Date().toISOString().split('T')[0]}.pdf`);
-    mostrarNotificacao('📄 PDF gerado com sucesso!');
+    alert('📄 PDF gerado com sucesso!');
 }
 
-// Exportar dados como Excel
+// Exportar Excel
 function exportarExcel() {
     if (medicoes.length === 0) {
         alert('Não há dados para exportar.');
@@ -400,64 +449,31 @@ function exportarExcel() {
     }
 
     const medicoesFiltradas = filtrarMedicoes();
+    const dadosExcel = medicoesFiltradas.map(m => ({
+        'Data': new Date(m.timestamp).toLocaleDateString('pt-BR'),
+        'Hora': new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        'Momento': momentosNomes[m.momento],
+        'Glicemia (mg/dL)': m.glicemia,
+        'Tipo de Insulina': m.tipoInsulina || '',
+        'Insulina (U)': m.unidadesInsulina || 0
+    }));
 
-    // Preparar dados para Excel
-    const dadosExcel = medicoesFiltradas.map(medicao => {
-        const data = new Date(medicao.dataHora);
-        return {
-            'Data': data.toLocaleDateString('pt-BR'),
-            'Hora': data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-            'Momento': momentosNomes[medicao.momento],
-            'Glicemia (mg/dL)': medicao.glicemia,
-            'Tipo de Insulina': medicao.tipoInsulina || '',
-            'Insulina (U)': medicao.unidadesInsulina || medicao.insulina || 0,
-            'Anotações': medicao.anotacoes || ''
-        };
-    });
-
-    // Criar estatísticas
-    const stats = calcularEstatisticas(medicoesFiltradas);
-    const estatisticas = [
-        { 'Estatística': 'Total de Medições', 'Valor': medicoesFiltradas.length },
-        { 'Estatística': 'Média Geral', 'Valor': stats.mediaGeral + ' mg/dL' },
-        { 'Estatística': 'Média em Jejum', 'Valor': stats.mediaJejum },
-        { 'Estatística': 'Média Pós-Prandial', 'Valor': stats.mediaPosPrandial },
-        { 'Estatística': 'Período', 'Valor': getFiltroTexto() },
-        { 'Estatística': 'Data do Relatório', 'Valor': new Date().toLocaleDateString('pt-BR') }
-    ];
-
-    // Criar workbook
     const wb = XLSX.utils.book_new();
-
-    // Adicionar aba de medições
-    const wsMedicoes = XLSX.utils.json_to_sheet(dadosExcel);
-    XLSX.utils.book_append_sheet(wb, wsMedicoes, 'Medições');
-
-    // Adicionar aba de estatísticas
-    const wsStats = XLSX.utils.json_to_sheet(estatisticas);
-    XLSX.utils.book_append_sheet(wb, wsStats, 'Estatísticas');
-
-    // Salvar arquivo
+    const ws = XLSX.utils.json_to_sheet(dadosExcel);
+    XLSX.utils.book_append_sheet(wb, ws, 'Medições');
     XLSX.writeFile(wb, `controle-glicemia-${new Date().toISOString().split('T')[0]}.xlsx`);
-    mostrarNotificacao('📊 Excel gerado com sucesso!');
+    alert('📊 Excel gerado com sucesso!');
 }
 
-// Calcular estatísticas para exportação
+// Calcular estatísticas
 function calcularEstatisticas(medicoesFiltradas) {
     if (medicoesFiltradas.length === 0) {
-        return {
-            mediaGeral: '--',
-            mediaJejum: '--',
-            mediaPosPrandial: '--'
-        };
+        return { mediaGeral: '--', mediaJejum: '--', mediaPosPrandial: '--' };
     }
 
-    const somaGeral = medicoesFiltradas.reduce((acc, m) => acc + m.glicemia, 0);
-    const mediaGeral = Math.round(somaGeral / medicoesFiltradas.length);
+    const mediaGeral = Math.round(medicoesFiltradas.reduce((acc, m) => acc + m.glicemia, 0) / medicoesFiltradas.length);
 
-    const jejum = medicoesFiltradas.filter(m => 
-        m.momento.includes('-antes') || m.momento === 'antes-dormir'
-    );
+    const jejum = medicoesFiltradas.filter(m => m.momento.includes('-antes') || m.momento === 'antes-dormir');
     const mediaJejum = jejum.length > 0 
         ? Math.round(jejum.reduce((acc, m) => acc + m.glicemia, 0) / jejum.length) + ' mg/dL'
         : '--';
@@ -469,75 +485,3 @@ function calcularEstatisticas(medicoesFiltradas) {
 
     return { mediaGeral, mediaJejum, mediaPosPrandial };
 }
-
-// Obter texto do filtro atual
-function getFiltroTexto() {
-    switch (filtroAtual) {
-        case 'hoje': return 'Hoje';
-        case 'semana': return 'Última Semana';
-        case 'mes': return 'Último Mês';
-        default: return 'Todos os Registros';
-    }
-}
-
-// Limpar todos os dados
-function limparDados() {
-    if (confirm('⚠️ ATENÇÃO! Isso irá apagar TODAS as medições. Deseja continuar?')) {
-        if (confirm('Tem certeza absoluta? Esta ação não pode ser desfeita!')) {
-            medicoes = [];
-            salvarMedicoes();
-            renderizarHistorico();
-            atualizarEstatisticas();
-            mostrarNotificacao('🗑️ Todos os dados foram apagados.');
-        }
-    }
-}
-
-// Mostrar notificação temporária
-function mostrarNotificacao(mensagem) {
-    const notificacao = document.createElement('div');
-    notificacao.className = 'alert success';
-    notificacao.innerHTML = `<p>${mensagem}</p>`;
-    notificacao.style.position = 'fixed';
-    notificacao.style.top = '20px';
-    notificacao.style.right = '20px';
-    notificacao.style.zIndex = '9999';
-    notificacao.style.minWidth = '300px';
-    notificacao.style.animation = 'slideIn 0.3s ease';
-
-    document.body.appendChild(notificacao);
-
-    setTimeout(() => {
-        notificacao.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => {
-            document.body.removeChild(notificacao);
-        }, 300);
-    }, 3000);
-}
-
-// Adicionar estilos para animações
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from {
-            transform: translateX(400px);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    }
-    
-    @keyframes slideOut {
-        from {
-            transform: translateX(0);
-            opacity: 1;
-        }
-        to {
-            transform: translateX(400px);
-            opacity: 0;
-        }
-    }
-`;
-document.head.appendChild(style);
