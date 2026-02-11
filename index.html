@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="description" content="Sistema de controle de glicemia e insulina - Registre suas medições, acompanhe estatísticas e exporte relatórios">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Controle de Glicemia e Insulina</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Controle de Glicemia</h1>
+        </header>
+
+        
+        <div class="form-section">
+            <form id="medicaoForm">
+                <div class="form-group">
+                    <label for="momento">Momento:</label>
+                    <select id="momento" required>
+                        <option value="">Selecione...</option>
+                        <option value="cafe-antes">☕ Café da Manhã - Antes</option>
+                        <option value="cafe-depois">☕ Café da Manhã - 1h Depois</option>
+                        <option value="almoco-antes">🍽️ Almoço - Antes</option>
+                        <option value="almoco-depois">🍽️ Almoço - 1h Depois</option>
+                        <option value="lanche-antes">🍰 Café da Tarde - Antes</option>
+                        <option value="lanche-depois">🍰 Café da Tarde - 1h Depois</option>
+                        <option value="jantar-antes">🌙 Jantar - Antes</option>
+                        <option value="jantar-depois">🌙 Jantar - 1h Depois</option>
+                        <option value="antes-dormir">😴 Antes de Dormir</option>
+                        <option value="antes-treino">💪 Antes do Treino</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="glicemia">Glicemia (mg/dL):</label>
+                    <input type="number" id="glicemia" required min="0" max="600" placeholder="Ex: 120">
+                </div>
+
+                <div class="form-group">
+                    <label for="insulina">Insulina Aplicada:</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div>
+                            <label for="tipoInsulina" style="font-size: 0.9em; margin-bottom: 5px;">Tipo:</label>
+                            <select id="tipoInsulina">
+                                <option value="">Não aplicado</option>
+                                <option value="NPH">NPH</option>
+                                <option value="Regular">Regular</option>
+                                <option value="Lantus">Lantus (Glargina)</option>
+                                <option value="Levemir">Levemir (Detemir)</option>
+                                <option value="Tresiba">Tresiba (Degludeca)</option>
+                                <option value="Humalog">Humalog (Lispro)</option>
+                                <option value="NovoRapid">NovoRapid (Aspart)</option>
+                                <option value="Apidra">Apidra (Glulisina)</option>
+                                <option value="Outro">Outro</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="unidadesInsulina" style="font-size: 0.9em; margin-bottom: 5px;">Unidades (U):</label>
+                            <input type="number" id="unidadesInsulina" min="0" step="0.5" placeholder="Ex: 10">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="anotacoes">Anotações:</label>
+                    <textarea id="anotacoes" rows="3" placeholder="Lembretes, observações..."></textarea>
+                </div>
+
+                <button type="submit" class="btn-primary">💾 Registrar Medição</button>
+            </form>
+        </div>
+
+        
+        <div id="alertaTreino" class="alert" style="display: none;">
+            <p id="alertaTexto"></p>
+        </div>
+
+        
+        <div class="filters">
+            <h2>📅 Histórico de Medições</h2>
+            <div class="filter-buttons">
+                <button onclick="filtrarPeriodo('hoje')" class="btn-filter">Hoje</button>
+                <button onclick="filtrarPeriodo('semana')" class="btn-filter">Última Semana</button>
+                <button onclick="filtrarPeriodo('mes')" class="btn-filter">Último Mês</button>
+                <button onclick="filtrarPeriodo('todos')" class="btn-filter active">Todos</button>
+            </div>
+        </div>
+
+
+        <div class="historico-section">
+            <div id="historicoLista"></div>
+        </div>
+
+
+        <div class="stats-section">
+            <h2>📈 Estatísticas</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-label">Média Geral</span>
+                    <span class="stat-value" id="mediaGeral">--</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Média em Jejum</span>
+                    <span class="stat-value" id="mediaJejum">--</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Média Pós-Prandial</span>
+                    <span class="stat-value" id="mediaPosPrandial">--</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Total de Medições</span>
+                    <span class="stat-value" id="totalMedicoes">--</span>
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="action-buttons">
+            <button onclick="exportarPDF()" class="btn-export">📄 Exportar PDF</button>
+            <button onclick="exportarExcel()" class="btn-export">📊 Exportar Excel</button>
+            <button onclick="exportarJSON()" class="btn-secondary">💾 Exportar JSON</button>
+            <button onclick="limparDados()" class="btn-danger">🗑️ Limpar Histórico</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
