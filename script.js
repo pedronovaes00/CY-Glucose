@@ -91,6 +91,7 @@ const momentosNomes = {
     'jantar-depois': '🌙 Jantar - 1h Depois',
     'antes-dormir': '😴 Antes de Dormir',
     'antes-treino': '💪 Antes do Treino'
+    'depois-treino': '💪 Depois do Treino'
 };
 
 // Inicialização
@@ -108,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Verificar alerta de treino
+    
     document.getElementById('momento').addEventListener('change', function() {
         if (this.value === 'antes-treino') {
             document.getElementById('glicemia').addEventListener('input', verificarAlertaTreino);
