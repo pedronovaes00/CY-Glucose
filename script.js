@@ -98,10 +98,15 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!codigoAcesso) return; // Não inicializar sem código
     
     // Formulário de medição
-    document.getElementById('medicaoForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        await salvarMedicao();
-    });
+    const form = document.getElementById('medicaoForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            salvarMedicao();
+            return false;
+        });
+    }
 
     // Verificar alerta de treino
     document.getElementById('momento').addEventListener('change', function() {
@@ -484,4 +489,25 @@ function calcularEstatisticas(medicoesFiltradas) {
         : '--';
 
     return { mediaGeral, mediaJejum, mediaPosPrandial };
+}
+
+// Mostrar código de acesso
+function mostrarCodigo() {
+    alert(`🔑 Seu código de acesso:\n\n${codigoAcesso}\n\nUse este código para acessar seus dados de outros dispositivos!`);
+}
+
+// Trocar código de acesso
+function trocarCodigo() {
+    if (confirm('⚠️ Deseja trocar de código?\n\nVocê perderá acesso aos dados do código atual neste dispositivo.')) {
+        localStorage.removeItem('codigoAcesso');
+        location.reload();
+    }
+}
+
+// Sair do app
+function sair() {
+    if (confirm('🚪 Deseja sair?\n\nVocê pode voltar usando o mesmo código.')) {
+        localStorage.removeItem('codigoAcesso');
+        location.reload();
+    }
 }
