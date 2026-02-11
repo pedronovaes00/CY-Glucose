@@ -1,106 +1,115 @@
-// Netlify Function - Medições com Código Simples
-let dadosPorCodigo = {}; // { 'GLICE-1234': [medicoes] }
+// Vercel Serverless Function - Medições com Vercel Blob (Persistente e GRATUITO!)
+import { put, get, list, del } from '@vercel/blob';
 
-exports.handler = async (event, context) => {
-    const headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-        'Content-Type': 'application/json'
-    };
+export default async function handler(req, res) {
+    // CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
 
-    if (event.httpMethod === 'OPTIONS') {
-        return { statusCode: 200, headers, body: '' };
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
     }
 
     try {
         // GET - Listar medições
-        if (event.httpMethod === 'GET') {
-            const codigo = event.queryStringParameters?.codigo;
+        if (req.method === 'GET') {
+            const codigo = req.query.codigo;
             if (!codigo) {
-                return {
-                    statusCode: 400,
-                    headers,
-                    body: JSON.stringify({ erro: 'Código não fornecido' })
-                };
+                return res.status(400).json({ erro: 'Código não fornecido' });
             }
 
-            const medicoes = dadosPorCodigo[codigo] || [];
-            return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify(medicoes)
-            };
+            try {
+                const blob = await get(`glicemia-${codigo}.json`);
+                if (blob) {
+                    const data = await blob.json();
+                    return res.status(200).json(data);
+                }
+                return res.status(200).json([]);
+            } catch (error) {
+                // Arquivo não existe ainda
+                return res.status(200).json([]);
+            }
         }
 
         // POST - Salvar medição
-        if (event.httpMethod === 'POST') {
-            const { codigo, ...medicao } = JSON.parse(event.body);
+        if (req.method === 'POST') {
+            const { codigo, ...medicao } = req.body;
             
             if (!codigo) {
-                return {
-                    statusCode: 400,
-                    headers,
-                    body: JSON.stringify({ erro: 'Código não fornecido' })
-                };
+                return res.status(400).json({ erro: 'Código não fornecido' });
             }
 
-            if (!dadosPorCodigo[codigo]) {
-                dadosPorCodigo[codigo] = [];
+            // Carregar dados existentes
+            let dados = [];
+            try {
+                const blob = await get(`glicemia-${codigo}.json`);
+                if (blob) {
+                    dados = await blob.json();
+                }
+            } catch (error) {
+                // Arquivo não existe, começar array vazio
             }
 
             if (medicao.id) {
-                const index = dadosPorCodigo[codigo].findIndex(m => m.id === medicao.id);
+                // Editar existente
+                const index = dados.findIndex(m => m.id === medicao.id);
                 if (index >= 0) {
-                    dadosPorCodigo[codigo][index] = medicao;
+                    dados[index] = medicao;
                 } else {
-                    dadosPorCodigo[codigo].unshift(medicao);
+                    dados.unshift(medicao);
                 }
             } else {
+                // Novo registro
                 medicao.id = Date.now().toString();
-                dadosPorCodigo[codigo].unshift(medicao);
+                dados.unshift(medicao);
             }
 
-            return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify(medicao)
-            };
+            // Salvar no Blob
+            await put(`glicemia-${codigo}.json`, JSON.stringify(dados), {
+                access: 'public',
+                contentType: 'application/json',
+            });
+
+            return res.status(200).json(medicao);
         }
 
         // DELETE - Deletar medição
-        if (event.httpMethod === 'DELETE') {
-            const codigo = event.queryStringParameters?.codigo;
-            const medicaoId = event.path.split('/').pop();
+        if (req.method === 'DELETE') {
+            const codigo = req.query.codigo;
+            const medicaoId = req.url.split('/').pop().split('?')[0];
             
-            if (!codigo || !dadosPorCodigo[codigo]) {
-                return {
-                    statusCode: 404,
-                    headers,
-                    body: JSON.stringify({ erro: 'Código não encontrado' })
-                };
+            if (!codigo) {
+                return res.status(404).json({ erro: 'Código não encontrado' });
             }
 
-            dadosPorCodigo[codigo] = dadosPorCodigo[codigo].filter(m => m.id !== medicaoId);
+            // Carregar dados
+            let dados = [];
+            try {
+                const blob = await get(`glicemia-${codigo}.json`);
+                if (blob) {
+                    dados = await blob.json();
+                }
+            } catch (error) {
+                return res.status(404).json({ erro: 'Dados não encontrados' });
+            }
+
+            // Filtrar
+            const dadosFiltrados = dados.filter(m => m.id !== medicaoId);
             
-            return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify({ sucesso: true })
-            };
+            // Salvar de volta
+            await put(`glicemia-${codigo}.json`, JSON.stringify(dadosFiltrados), {
+                access: 'public',
+                contentType: 'application/json',
+            });
+            
+            return res.status(200).json({ sucesso: true });
         }
 
-        return {
-            statusCode: 405,
-            headers,
-            body: JSON.stringify({ erro: 'Método não permitido' })
-        };
+        return res.status(405).json({ erro: 'Método não permitido' });
 
     } catch (error) {
-        return {
-            statusCode: 500,
-            headers,
-            body: JSON.stringify({ erro: 'Erro interno' })
-        };
+        console.error('Erro:', error);
+        return res.status(500).json({ erro: 'Erro interno', detalhes: error.message });
     }
-};
+}
