@@ -1,5 +1,5 @@
-// Carregar dados do localStorage
-let medicoes = JSON.parse(localStorage.getItem('medicoes')) || [];
+// Carregar dados (agora do Firestore em vez de localStorage)
+let medicoes = [];
 let filtroAtual = 'todos';
 
 // Nomes amigáveis para os momentos
@@ -18,13 +18,16 @@ const momentosNomes = {
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', function() {
+    // Preencher data e hora atuais
+    preencherDataHoraAtual();
+    
     renderizarHistorico();
     atualizarEstatisticas();
 
     // Formulário de medição
     document.getElementById('medicaoForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        adicionarMedicao();
+        salvarMedicao();
     });
 
     // Verificar alerta de treino ao mudar o momento
@@ -38,8 +41,18 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Adicionar nova medição
-function adicionarMedicao() {
+// Preencher data e hora atuais
+function preencherDataHoraAtual() {
+    const agora = new Date();
+    const dataFormatada = agora.toISOString().split('T')[0];
+    const horaFormatada = agora.toTimeString().split(':').slice(0, 2).join(':');
+    
+    document.getElementById('dataRegistro').value = dataFormatada;
+    document.getElementById('horaRegistro').value = horaFormatada;
+}
+
+// Salvar medição (nova ou editada)
+function salvarMedicao() {
     const momento = document.getElementById('momento').value;
     const glicemia = parseInt(document.getElementById('glicemia').value);
     const tipoInsulina = document.getElementById('tipoInsulina').value;
@@ -123,7 +136,10 @@ function renderizarHistorico() {
                         <div class="medicao-momento">${momentosNomes[medicao.momento]}</div>
                         <div class="medicao-datetime">📅 ${dataFormatada} às ${horaFormatada}</div>
                     </div>
-                    <button class="btn-delete" onclick="deletarMedicao(${medicao.id})">🗑️ Excluir</button>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn-edit" onclick="editarMedicao(${medicao.id})">✏️ Editar</button>
+                        <button class="btn-delete" onclick="deletarMedicao(${medicao.id})">🗑️ Excluir</button>
+                    </div>
                 </div>
                 <div class="medicao-body">
                     <div class="medicao-info">
@@ -191,14 +207,51 @@ function filtrarPeriodo(periodo) {
 }
 
 // Deletar medição
-function deletarMedicao(id) {
+async function deletarMedicao(id) {
     if (confirm('Tem certeza que deseja excluir esta medição?')) {
-        medicoes = medicoes.filter(m => m.id !== id);
-        salvarMedicoes();
-        renderizarHistorico();
-        atualizarEstatisticas();
-        mostrarNotificacao('🗑️ Medição excluída.');
+        if (await deletarMedicaoFirestore(id)) {
+            mostrarNotificacao('🗑️ Medição excluída.');
+        }
     }
+}
+
+// Editar medição
+function editarMedicao(id) {
+    const medicao = medicoes.find(m => m.id === id);
+    if (!medicao) return;
+
+    // Rolar para o formulário
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Preencher formulário com dados da medição
+    document.getElementById('momento').value = medicao.momento;
+    document.getElementById('glicemia').value = medicao.glicemia;
+    document.getElementById('tipoInsulina').value = medicao.tipoInsulina || '';
+    document.getElementById('unidadesInsulina').value = medicao.unidadesInsulina || '';
+    document.getElementById('anotacoes').value = medicao.anotacoes || '';
+    
+    // Preencher data e hora
+    const dataHora = new Date(medicao.dataHora);
+    const dataFormatada = dataHora.toISOString().split('T')[0];
+    const horaFormatada = dataHora.toTimeString().split(':').slice(0, 2).join(':');
+    document.getElementById('dataRegistro').value = dataFormatada;
+    document.getElementById('horaRegistro').value = horaFormatada;
+
+    // Marcar como modo de edição
+    document.getElementById('medicaoEditandoId').value = id;
+    document.getElementById('btnSalvar').textContent = '✅ Atualizar Medição';
+    document.getElementById('btnCancelar').style.display = 'block';
+
+    mostrarNotificacao('✏️ Modo de edição ativado. Altere os dados e clique em Atualizar.');
+}
+
+// Cancelar edição
+function cancelarEdicao() {
+    document.getElementById('medicaoEditandoId').value = '';
+    document.getElementById('btnSalvar').textContent = '💾 Registrar Medição';
+    document.getElementById('btnCancelar').style.display = 'none';
+    document.getElementById('medicaoForm').reset();
+    preencherDataHoraAtual();
 }
 
 // Atualizar estatísticas
@@ -244,10 +297,8 @@ function atualizarEstatisticas() {
     document.getElementById('totalMedicoes').textContent = medicoesFiltradas.length;
 }
 
-// Salvar medições no localStorage
-function salvarMedicoes() {
-    localStorage.setItem('medicoes', JSON.stringify(medicoes));
-}
+// ⚠️ Função removida - agora usa Firestore
+// Salvar medições era no localStorage, agora usa salvarMedicaoFirestore()
 
 // Exportar dados como JSON
 function exportarJSON() {
