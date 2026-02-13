@@ -19,24 +19,16 @@ const API_URL = window.location.hostname === 'localhost'
 async function carregarMedicoesAPI(codigo) {
     try {
         const response = await fetch(`${API_URL}/medicoes?codigo=${encodeURIComponent(codigo)}`);
+        const bodyText = await response.text();
         
         if (!response.ok) {
-            // tentar ler corpo de erro (pode não ser JSON)
-            let textoErro = 'Erro ao carregar medições';
-            try {
-                const t = await response.text();
-                if (t) textoErro = t;
-            } catch (e) {
-                /* fallback */
-            }
-            throw new Error(textoErro);
+            throw new Error(bodyText || 'Erro ao carregar medições');
         }
 
         try {
-            return await response.json();
+            return JSON.parse(bodyText);
         } catch (e) {
-            // resposta não é JSON
-            console.error('Resposta inválida (não-JSON) ao carregar medições:', await response.text());
+            console.error('Resposta inválida (não-JSON) ao carregar medições:', bodyText);
             return [];
         }
     } catch (error) {
@@ -50,10 +42,9 @@ async function validarCodigoAPI(codigo) {
     try {
         const response = await fetch(`${API_URL}/medicoes?codigo=${encodeURIComponent(codigo)}`);
         if (response.status === 404) return false;
+        const bodyText = await response.text();
         if (!response.ok) {
-            let textoErro = 'Erro ao validar código';
-            try { textoErro = await response.text(); } catch (e) {}
-            throw new Error(textoErro);
+            throw new Error(bodyText || 'Erro ao validar código');
         }
         return true;
     } catch (error) {
@@ -70,19 +61,24 @@ async function salvarMedicaoAPI(medicao, codigo, registrarNovo = false) {
             body: JSON.stringify({ ...medicao, codigo, registrarNovo })
         });
         
+        const bodyText = await response.text();
+        
         if (!response.ok) {
-            // tentar decodificar JSON de erro, cair para texto se necessário
-            let erroObj = null;
+            let errorMsg = bodyText || 'Erro ao salvar medição';
             try {
-                erroObj = await response.json();
+                const erroObj = JSON.parse(bodyText);
+                errorMsg = erroObj.erro || errorMsg;
             } catch (e) {
-                const txt = await response.text();
-                erroObj = { erro: txt };
+                // bodyText não é JSON
             }
-            throw new Error(erroObj.erro || 'Erro ao salvar medição');
+            throw new Error(errorMsg);
         }
         
-        return await response.json();
+        try {
+            return JSON.parse(bodyText);
+        } catch (e) {
+            throw new Error('Resposta inválida ao salvar medição');
+        }
     } catch (error) {
         console.error('Erro ao salvar medição:', error);
         throw error;
